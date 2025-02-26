@@ -15,7 +15,7 @@ class QueryingMistralAgent:
         MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
         self.client = Mistral(api_key=MISTRAL_API_KEY)
-    
+
     async def run(self, message: discord.Message):
         # The simplest form of an agent
         # Send the message's content to Mistral's API and return Mistral's response
@@ -30,7 +30,7 @@ class QueryingMistralAgent:
             messages=messages,
         )
         message_response = response.choices[0].message.content
-        
+
         queries = [i.strip() for i in message_response.split("\n")]
         information = ""
         for url in queries:
@@ -39,10 +39,10 @@ class QueryingMistralAgent:
             except Exception as e:
                 print(f"Invalid query: {e}")
             information += fetched_information + "\n\n"
-        
+
         return information
 
-ANSWERING_SYSTEM_PROMPT = f"You are an arxiv assistant. Use the fetched xml information to answer the user's question or complete the specified task. Ensure your response is less than {MAX_MESSAGE_CHARACTERS} characters"
+ANSWERING_SYSTEM_PROMPT = f"You are an arxiv assistant. Please answer the user's question or complete the specified task. Ensure your response is less than {MAX_MESSAGE_CHARACTERS} characters"
 
 class AnsweringMistralAgent:
     def __init__(self):
