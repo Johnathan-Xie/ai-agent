@@ -4,7 +4,8 @@ import logging
 
 from discord.ext import commands
 from dotenv import load_dotenv
-from agent import MistralAgent
+from agent import QueryingMistralAgent, AnsweringMistralAgent
+from copy import deepcopy
 
 PREFIX = "!"
 
@@ -20,8 +21,8 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 # Import the Mistral agent from the agent.py file
-agent = MistralAgent()
-
+querying_agent = QueryingMistralAgent()
+answering_agent = AnsweringMistralAgent()
 
 # Get the token from the environment variables
 token = os.getenv("DISCORD_TOKEN")
@@ -55,10 +56,14 @@ async def on_message(message: discord.Message):
     # Process the message with the agent you wrote
     # Open up the agent.py file to customize the agent
     logger.info(f"Processing message from {message.author}: {message.content}")
-    response = await agent.run(message)
-
+    querying_response = await querying_agent.run(message)
+    
+    question_with_context = message.content + "\n\n" + querying_response
+    message_question_with_context = message
+    message_question_with_context.content = question_with_context
+    answering_response = await answering_agent.run(message_question_with_context)
     # Send the response back to the channel
-    await message.reply(response)
+    await message.reply(answering_response)
 
 
 # Commands
