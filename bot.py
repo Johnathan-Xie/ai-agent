@@ -27,6 +27,8 @@ answering_agent = AnsweringMistralAgent()
 # Get the token from the environment variables
 token = os.getenv("DISCORD_TOKEN")
 
+# Store user chat history
+chat_histories = {}
 
 @bot.event
 async def on_ready():
@@ -52,17 +54,27 @@ async def on_message(message: discord.Message):
     # Ignore messages from self or other bots to prevent infinite loops.
     if message.author.bot or message.content.startswith("!"):
         return
+    user_id = message.author.id
+    user_chat_history = chat_histories.get(user_id, [])
 
-    # Process the message with the agent you wrote
-    # Open up the agent.py file to customize the agent
+    # Append new message to chat history
+    user_chat_history.append({"role": "user", "content": message.content})
+    chat_histories[user_id] = user_chat_history[-10:]  # Keep only the last 10 messages
+
     logger.info(f"Processing message from {message.author}: {message.content}")
+    # Query agent for initial processing
     querying_response = await querying_agent.run(message)
-    
-    question_with_context = message.content + "\n\n" + querying_response
-    message_question_with_context = message
-    message_question_with_context.content = question_with_context
-    answering_response = await answering_agent.run(message_question_with_context)
-    # Send the response back to the channel
+    user_chat_history.append({"role": "assistant", "content": querying_response})
+
+    # Formulate question with chat history
+    messages = [{"role": "system", "content": "You are a helpful assistant."}] + user_chat_history
+    answering_response = await answering_agent.run(message)
+    user_chat_history.append({"role": "assistant", "content": answering_response})
+
+    # Update stored history
+    chat_histories[user_id] = user_chat_history[-5:]
+
+    # Send response
     await message.reply(answering_response)
 
 
@@ -79,6 +91,14 @@ async def ping(ctx, *, arg=None):
     else:
         await ctx.send(f"Pong! Your argument was {arg}")
 
+@bot.command(name="reset", help="Resets the chat history for the user.")
+async def reset(ctx):
+    user_id = ctx.author.id
+    if user_id in chat_histories:
+        del chat_histories[user_id]
+        await ctx.send("Chat history has been reset.")
+    else:
+        await ctx.send("No chat history found to reset.")
 
 # Start the bot, connecting it to the gateway
 bot.run(token)
