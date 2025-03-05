@@ -28,38 +28,35 @@ Return the output in JSON format. Example:
 }
 """
 
-# class QueryingMistralAgent:
-#     def __init__(self):
-#         MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+class QueryingMistralAgent:
+    def __init__(self):
+        MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-#         self.client = Mistral(api_key=MISTRAL_API_KEY)
+        self.client = Mistral(api_key=MISTRAL_API_KEY)
 
-#     async def run(self, message: discord.Message):
-#         # The simplest form of an agent
-#         # Send the message's content to Mistral's API and return Mistral's response
+    async def run(self, messages):
+        # The simplest form of an agent
+        # Send the message's content to Mistral's API and return Mistral's response
+        messages = [{"role": "system", "content": QUERYING_SYSTEM_PROMPT},] + messages
 
-#         messages = [
-#             {"role": "system", "content": QUERYING_SYSTEM_PROMPT},
-#             {"role": "user", "content": message.content},
-#         ]
+        response = await self.client.chat.complete_async(
+            model=MISTRAL_MODEL,
+            messages=messages,
+        )
+        message_response = response.choices[0].message.content
 
-#         response = await self.client.chat.complete_async(
-#             model=MISTRAL_MODEL,
-#             messages=messages,
-#         )
-#         message_response = response.choices[0].message.content
+        queries = [i.strip() for i in message_response.split("\n")]
+        information = ""
+        for url in queries:
+            try:
+                fetched_information = urllib.request.urlopen(url).read().decode("utf-8")
+                information += fetched_information + "\n\n"
+            except Exception as e:
+                print(f"Invalid query: {e}")
 
-#         queries = [i.strip() for i in message_response.split("\n")]
-#         information = ""
-#         for url in queries:
-#             try:
-#                 fetched_information = urllib.request.urlopen(url).read().decode("utf-8")
-#             except Exception as e:
-#                 print(f"Invalid query: {e}")
-#             information += fetched_information + "\n\n"
+        return information
 
-#         return information
-
+"""
 class QueryingMistralAgent:
     def __init__(self):
         self.base_url = "https://export.arxiv.org/api/query?"
@@ -113,7 +110,7 @@ class QueryingMistralAgent:
         return self.parse_arxiv_response(response)
 
     def parse_arxiv_response(self, xml_response):
-        """Parses XML response from arXiv and formats the output."""
+        Parses XML response from arXiv and formats the output.
         root = ET.fromstring(xml_response)
         papers = []
 
@@ -128,6 +125,7 @@ class QueryingMistralAgent:
             papers.append(paper_data)
 
         return "\n\n".join(papers) if papers else "No relevant papers found."
+"""
 
 ANSWERING_SYSTEM_PROMPT = f"You are an arxiv assistant. Please answer the user's question or complete the specified task. Ensure your response is less than {MAX_MESSAGE_CHARACTERS} characters"
 
@@ -137,14 +135,10 @@ class AnsweringMistralAgent:
 
         self.client = Mistral(api_key=MISTRAL_API_KEY)
 
-    async def run(self, message: discord.Message):
+    async def run(self, messages: discord.Message):
         # The simplest form of an agent
         # Send the message's content to Mistral's API and return Mistral's response
-
-        messages = [
-            {"role": "system", "content": ANSWERING_SYSTEM_PROMPT},
-            {"role": "user", "content": message.content},
-        ]
+        messages = [{"role": "system", "content": ANSWERING_SYSTEM_PROMPT},] + messages
 
         response = await self.client.chat.complete_async(
             model=MISTRAL_MODEL,

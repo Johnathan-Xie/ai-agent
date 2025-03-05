@@ -29,6 +29,7 @@ token = os.getenv("DISCORD_TOKEN")
 
 # Store user chat history
 chat_histories = {}
+MAX_CHAT_HISTORY = 10
 
 @bot.event
 async def on_ready():
@@ -39,7 +40,6 @@ async def on_ready():
     https://discordpy.readthedocs.io/en/latest/api.html#discord.on_ready
     """
     logger.info(f"{bot.user} has connected to Discord!")
-
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -55,25 +55,25 @@ async def on_message(message: discord.Message):
     if message.author.bot or message.content.startswith("!"):
         return
     user_id = message.author.id
-    user_chat_history = chat_histories.get(user_id, [])
-
+    if chat_histories.get(user_id) is None:
+        chat_histories[user_id] = []
+    
     # Append new message to chat history
-    user_chat_history.append({"role": "user", "content": message.content})
-    chat_histories[user_id] = user_chat_history[-10:]  # Keep only the last 10 messages
-
+    chat_histories[user_id].append({"role": "user", "content": message.content})
+    
     logger.info(f"Processing message from {message.author}: {message.content}")
     # Query agent for initial processing
-    querying_response = await querying_agent.run(message)
-    user_chat_history.append({"role": "assistant", "content": querying_response})
+    # full_agent_question = chat_history_template(user_chat_history)
+    logger.info(f"Querying agent answering {chat_histories[user_id]}")
+    querying_response = await querying_agent.run(chat_histories[user_id])
+    logger.info(f"Querying agent response {querying_response}")
 
-    # Formulate question with chat history
-    messages = [{"role": "system", "content": "You are a helpful assistant."}] + user_chat_history
-    answering_response = await answering_agent.run(message)
-    user_chat_history.append({"role": "assistant", "content": answering_response})
-
-    # Update stored history
-    chat_histories[user_id] = user_chat_history[-5:]
-
+    chat_histories[user_id][-1]["content"] += "\n\n" + querying_response + f"Use the papers above the answer the question {message.content}"
+    logger.info(f"Answering agent answering {chat_histories[user_id]}")
+    answering_response = await answering_agent.run(chat_histories[user_id])
+    logger.info(f"Answering agent response {answering_response}")
+    chat_histories[user_id].append({"role": "assistant", "content": answering_response})
+    
     # Send response
     await message.reply(answering_response)
 
