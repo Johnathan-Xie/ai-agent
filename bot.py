@@ -4,7 +4,7 @@ import logging
 
 from discord.ext import commands
 from dotenv import load_dotenv
-from agent import QueryingMistralAgent, AnsweringMistralAgent
+from agent import QueryingMistralAgent, AnsweringMistralAgent, LinkFetchingAgent
 from copy import deepcopy
 
 PREFIX = "!"
@@ -23,6 +23,7 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 # Import the Mistral agent from the agent.py file
 querying_agent = QueryingMistralAgent()
 answering_agent = AnsweringMistralAgent()
+link_fetching_agent = LinkFetchingAgent()
 
 # Get the token from the environment variables
 token = os.getenv("DISCORD_TOKEN")
@@ -64,12 +65,18 @@ async def on_message(message: discord.Message):
     logger.info(f"Processing message from {message.author}: {message.content}")
     # Query agent for initial processing
     # full_agent_question = chat_history_template(user_chat_history)
-    logger.info(f"Querying agent answering {chat_histories[user_id]}")
+    logger.info(f"Querying agent answering {chat_histories[user_id]}\n\n")
     querying_response = await querying_agent.run(chat_histories[user_id])
-    logger.info(f"Querying agent response {querying_response}")
-
-    chat_histories[user_id][-1]["content"] += "\n\n" + querying_response + f"Use the papers above the answer the question {message.content}"
-    logger.info(f"Answering agent answering {chat_histories[user_id]}")
+    logger.info(f"Querying agent response {querying_response}\n\n")
+    
+    chat_histories[user_id][-1]["content"] += "\n\n" + querying_response + f"Use the papers above the answer the question: {message.content}"
+    logger.info(f"Link Fetching agent answering {chat_histories[user_id]}\n\n")
+    link_fetching_response = await link_fetching_agent.run(chat_histories[user_id])
+    logger.info(f"Link Fetching agent response {link_fetching_response}\n\n")
+    if len(link_fetching_response) > 0:
+        chat_histories[user_id][-1]["content"] += "\n\n" + querying_response + f"Use the full paper shown above to answering the question: {message.content}"
+    
+    logger.info(f"Answering agent answering {chat_histories[user_id]}\n\n")
     answering_response = await answering_agent.run(chat_histories[user_id])
     logger.info(f"Answering agent response {answering_response}")
     chat_histories[user_id].append({"role": "assistant", "content": answering_response})

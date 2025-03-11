@@ -1,4 +1,4 @@
-name: discord_bot
+name: arxiv_bot
 channels:
   - defaults
 dependencies:
